@@ -32,8 +32,7 @@ object State{
 object DiscardPile{
 
 
-
-	def startGame(playerCount: Int, firstCard: Card)(state: State): GameStarted = {
+	def startGame(playerCount: Int, firstCard: Card)(state: State): Event = {
 		if(playerCount <= 2) 
 			throw new IllegalArgumentException("You should be at least 3 players")
 		
@@ -43,7 +42,7 @@ object DiscardPile{
 		GameStarted(playerCount, firstCard)
 	}
 
-	def playCard (player: Int, card: Card)(state: State) = {
+	def playCard (player: Int, card: Card)(state: State): Event = {
 		if(state.player.isNot(player)){
 			throw new IllegalStateException("Player should play at his turn")
 		}
@@ -59,10 +58,9 @@ object DiscardPile{
 	}
 
 
-	def handle(command: Command)= command match{
-			case StartGame(playerCount, firstCard) => startGame(playerCount, firstCard)(_)
-			case PlayCard (player, card)           => playCard (player, card)(_)
-		
+	def handle(command: Command): (State => Event) = command match{
+		case StartGame(playerCount, firstCard) => startGame(playerCount, firstCard)_
+		case PlayCard (player, card)           => playCard (player, card)_
 	}
 
 
