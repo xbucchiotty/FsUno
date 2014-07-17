@@ -2,24 +2,16 @@ package io.scala.uno
 
 import scala.annotation.tailrec
 
-trait EventStore{
-
-	def readStream(streamId: String, offset: Int,chunkSize: Int): (Seq[Event], Event, Option[Int])
-
-	def appendToStream(streamId: String, expectedVersion: Event, events: Seq[Event]):Unit
-}
-
-
 trait CommandHandler{
 
 	self: EventStore => 
 
 	private def streamId(gameId: Int) = s"DiscardPile-$gameId"
 
-	private def load(gameId: Int): (Event, State) = {
+	private def load(gameId: Int): (Int, State) = {
 
 		@tailrec
-		def fold(state:State, version:Int): (Event, State) = {
+		def fold(state:State, version:Int): (Int, State) = {
 
 			val (events, lastEvent, nextEvent) = readStream(streamId(gameId), version, 500)
 
@@ -34,11 +26,11 @@ trait CommandHandler{
 		fold(State.empty, 0)
 	}
 
-	private def save(gameId: Int, expectedVersion: Event, events: Seq[Event]){
+	private def save(gameId: Int, expectedVersion: Int, events: Seq[Event]){
 		appendToStream(streamId(gameId), expectedVersion, events)
 	}
 
-	def apply (command: Command, gameId: Int) = {
+	def apply (gameId: Int)(command: Command) = {
 		val (lastEvent,state) = load(gameId)
 		
 		val newEvent = DiscardPile.handle(command)(state)
