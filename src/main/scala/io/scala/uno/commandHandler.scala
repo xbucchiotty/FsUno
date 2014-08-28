@@ -32,6 +32,12 @@ trait CommandHandler{
 
 	def apply (gameId: Int)(command: Command) = {
 		val (lastEvent,state) = load(gameId)
+
+    println(s"gameId $gameId")
+    println(s"command $command")
+    println(s"lastEvent: $lastEvent")
+    println(s"state: $state")
+
 		
 		val newEvent = DiscardPile.handle(command)(state)
 
