@@ -1,23 +1,25 @@
 package io.scala.uno
 
-import akka.actor.ActorSystem
+import java.io.Closeable
+
+import akka.actor.{Actor, ActorSystem}
 import eventstore._
 
-import scala.concurrent.{Future, Await}
+import scala.concurrent.Await
+import EventStore.Projection
 
 trait EventStore {
 
-  type Projection = (Event => Unit)
-
-  protected var projections = Set.empty[Projection]
 
   def readStream(streamId: String, version: Int, count: Int): (Seq[Event], Int, Option[Int])
 
   def appendToStream(streamId: String, expectedVersion: Int, newEvents: Seq[Event]): Unit
 
-  def subscribe(projection: Projection) {
-    projections += projection
-  }
+  def subscribe(projection: Projection): Unit
+}
+
+object EventStore {
+  type Projection = (Event => Unit)
 }
 
 class WrongExpectedVersion(m: String) extends RuntimeException(m)
@@ -27,7 +29,13 @@ trait ToyInMemoryEventStore extends EventStore {
   type Events = Seq[(Event, Int)]
   type Store = Map[String, Events]
 
+  private var projections = Set.empty[Projection]
+
   private var store: Store = Map.empty
+
+  def subscribe(projection: Projection) {
+    projections += projection
+  }
 
   override def readStream(streamId: String, version: Int, count: Int): (Seq[Event], Int, Option[Int]) = {
     store.get(streamId) match {
@@ -82,11 +90,9 @@ trait ToyInMemoryEventStore extends EventStore {
 
 trait GetEventStore extends EventStore {
 
-  import eventstore.{EsConnection, EventData, EventNumber, EventStream, ExpectedVersion, ReadStreamEvents, Settings}
+  import eventstore.{EsConnection, EventNumber, EventStream, ExpectedVersion, ReadStreamEvents, Settings}
 
   import scala.concurrent.duration._
-  import scala.pickling._
-  import scala.pickling.json._
 
   private val system = ActorSystem()
 
@@ -94,6 +100,26 @@ trait GetEventStore extends EventStore {
 
   private val connection: EsConnection = EsConnection(system, Settings(defaultCredentials = Some(UserCredentials("admin", "changeit"))))
 
+  def subscribe(projection: Projection) {
+    connection.subscribeToAll(new SubscriptionObserver[IndexedEvent] {
+      override def onError(e: Throwable) {
+        println(s"[ERROR] : $e")
+      }
+
+      override def onEvent(event: IndexedEvent, subscription: Closeable) {
+        val unoEvent = deserializeEvent(event.event.data)
+        projection(unoEvent)
+      }
+
+      override def onClose() {
+
+      }
+
+      override def onLiveProcessingStart(subscription: Closeable) {
+
+      }
+    })
+  }
 
   override def readStream(streamId: String, version: Int, count: Int): (Seq[Event], Int, Option[Int]) = {
 
@@ -105,35 +131,35 @@ trait GetEventStore extends EventStore {
 
       val version = stream.lastEventNumber.value
 
-      val nextVersion = if (stream.endOfStream) {
+      val nextSliceVersion = if (stream.endOfStream) {
         None
       } else {
         Some(stream.nextEventNumber.asInstanceOf[EventNumber.Exact].value)
       }
 
-      (events, version, nextVersion)
+      (events, version, nextSliceVersion)
     }).recover {
-      case EsException(EsError.StreamNotFound, _) => (Seq.empty[Event], 0, None)
+      case EsException(EsError.StreamNotFound, _) => (Seq.empty[Event], -1, None)
     }, atMost = 5.seconds)
-  }
-
-  def deserializeEvent(data: EventData): Event = data match {
-    case EventData(_, _, Content(bytes, _), _) =>
-      bytes.decodeString("UTF-8").unpickle[Event]
   }
 
   override def appendToStream(streamId: String, expectedVersion: Int, newEvents: Seq[Event]) {
 
     val eventData = newEvents.map(serializeEvent).toList
 
+    val streamVersion = if (expectedVersion == -1) ExpectedVersion.NoStream else ExpectedVersion(expectedVersion)
+
     val writeOperation = connection.future(WriteEvents(
       EventStream(streamId),
-      eventData))
+      eventData, streamVersion))
 
     Await.ready(writeOperation
       , atMost = 5.seconds)
 
   }
+
+  import scala.pickling._
+  import scala.pickling.json._
 
   def serializeEvent(event: Event): EventData = {
     val output = new StringOutput()
@@ -143,5 +169,11 @@ trait GetEventStore extends EventStore {
     EventData.Json(event.getClass.getSimpleName, data = json)
 
   }
+
+  def deserializeEvent(data: EventData): Event = data match {
+    case EventData(_, _, Content(bytes, _), _) =>
+      bytes.decodeString("UTF-8").unpickle[Event]
+  }
+
 
 }
