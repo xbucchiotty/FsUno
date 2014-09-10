@@ -30,7 +30,7 @@ trait CommandHandler {
     appendToStream(streamId(gameId), expectedVersion, events)
   }
 
-  def apply(gameId: Int)(command: Command) = {
+  def apply(gameId: Int)(command: Command) {
     val (lastEvent, state) = load(gameId)
 
     val newEvent = DiscardPile.handle(command)(state)
