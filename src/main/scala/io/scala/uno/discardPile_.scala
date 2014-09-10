@@ -59,8 +59,8 @@ object DiscardPile{
 
 
 	def handle(command: Command): (State => Event) = command match{
-		case StartGame(playerCount, firstCard) => startGame(playerCount, firstCard)_
-		case PlayCard (player, card)           => playCard (player, card)_
+		case StartGame(playerCount, firstCard) => startGame(playerCount, firstCard)
+		case PlayCard (player, card)           => playCard(player, card)
 	}
 
 

@@ -175,5 +175,4 @@ trait GetEventStore extends EventStore {
       bytes.decodeString("UTF-8").unpickle[Event]
   }
 
-
 }
