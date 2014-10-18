@@ -2,29 +2,20 @@ package io.scala.uno
 
 import scala.util.Random
 
-object Program extends App{
-	
-	val commandHandler = new CommandHandler with GetEventStore
+object Program extends App {
 
-	def eventHandler(event: Event) = println(event)
+  val commandHandler = new CommandHandler with GetEventStore
 
-	commandHandler.subscribe(eventHandler)
+  def eventHandler(event: Event) = println(event)
 
-	val gameId = Random.nextInt(1000000)
+  commandHandler.subscribe(eventHandler)
 
-	val handle = commandHandler(gameId)_
+  val gameId = Random.nextInt(1000000)
 
-	  handle (StartGame(4, Digit(3, Red)))
-    
-    handle (PlayCard(0, Digit(3, Blue)))
+  val handle = commandHandler(gameId) _
 
-    handle (PlayCard(1, Digit(8, Blue)))
-    
-    handle (PlayCard(2, Digit(8, Yellow)))
-    
-    handle (PlayCard(3, Digit(4, Yellow)))
-    
-    handle (PlayCard(0, Digit(4, Green)))
+  handle(StartGame(4, Digit(3, Red)))
+
 }
 
 
