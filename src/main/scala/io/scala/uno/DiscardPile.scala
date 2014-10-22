@@ -23,22 +23,20 @@ object State {
 object DiscardPile {
 
 
-  def startGame(playerCount: Int, firstCard: Card)(state: State): Event = {
-    ???
-  }
+  def startGame(playerCount: Int, firstCard: Card)(state: State): Seq[Event] = Seq.empty
 
-  def handle(command: Command): (State => Event) = command match {
+  def handle(command: Command): (State => Seq[Event]) = command match {
     case StartGame(playerCount, firstCard) => startGame(playerCount, firstCard)
   }
 
 
-  def apply(state: State, event: Event) = event match {
+  def evolve(state: State, event: Event): State = event match {
 
     case GameStarted(playerCount, firstCard) =>
-      State(gameAlreadyStarted = true, player = Turn.start(playerCount), topCard = firstCard)
+      State.initial
 
   }
 
-  def replay(events: Seq[Event]) = events.foldLeft(State.initial)(DiscardPile.apply)
+  def replay(events: Seq[Event]): State = events.foldLeft(State.initial)(DiscardPile.evolve)
 }
 
